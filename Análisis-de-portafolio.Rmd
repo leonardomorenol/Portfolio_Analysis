@@ -1,0 +1,456 @@
+---
+title: "Análisis de Portafolio"
+author: "Leonardo Moreno López"
+date: "2023-04-09"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Con este trabajo buscare aplicar a la realidad lo que es la Teoría de Portafolio moderna de Harry
+Markowitz (1952) que intenta de maximizar el retorno de un portafolio y minimizar el riesgo medido
+a través del estadístico de la desviación estándar. Para esto utilizare 15 activos riesgosos como
+lo son las acciones de algunas de las siguientes compañias: Apple Inc. (AAPL), The Boeign Company
+(BA), Caterpillar Inc. (CAT), International Business Machines Corporation (IBM), JPMorgan Chase &
+Co. (JPM), que están insertas en distintos índices de mercado norteamericano como lo son el NASDAQ
+y el NYSE. Trabajaré con paquetes tales como lo son "tidyquant" para descargar datos desde Yahoo
+Finances, "xts" para trabajar con series de tiempo, "PerformanceAnalytics" para trabajar con lo 
+que es la Teoría de Portafolío y "tseries" para encontrar el portafolio óptimo.
+
+```{r include=FALSE}
+#Paquetes
+library(tidyquant)
+library(xts)
+library(PerformanceAnalytics)
+library(tseries)
+```
+
+Para partir, descargare los datos históricos de cada una de las acciones desde el 01-01-1980 hasta
+el 01-01-2023 pero en realidad trabajare desde el 01-12-2000 hasta el 31-12-2022 ya que algunas de 
+las compañías hicieron su IPO (Oferta Pública Inicial) posterior al 01-01-1980.
+
+```{r}
+#Importando datos
+AAPL<- tq_get("AAPL", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+AAPL$date <- as.Date(AAPL$date) 
+AAPL <- as.xts(AAPL)
+AAPL <- AAPL[,7]
+colnames(AAPL)[1] <- "AAPL"
+AAPL <- window(AAPL, start = "2000-12-01", end ="2022-12-31")
+
+#Amazon.com Inc. 
+AMZN<- tq_get("AMZN", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+AMZN$date <- as.Date(AMZN$date) 
+AMZN <- as.xts(AMZN)
+AMZN <- AMZN[,7]
+colnames(AMZN)[1] <- "AMZN"
+AMZN <- window(AMZN, start = "2000-12-01", end ="2022-12-31")
+
+# The Boeing Company
+BA <- tq_get("BA", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+BA$date <- as.Date(BA$date)
+BA <- as.xts(BA)
+BA <- BA[,7]
+colnames(BA)[1] <- "BA"
+BA <- window(BA, start = "2000-12-01", end ="2022-12-31")
+
+#Caterpillar Inc.
+CAT <- tq_get("CAT", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+CAT$date <- as.Date(CAT$date)
+CAT <- as.xts(CAT)
+CAT <- CAT[,7]
+colnames(CAT)[1] <- "CAT"
+CAT <- window(CAT, start = "2000-12-01", end ="2022-12-31")
+
+#The Walt Disney Company
+DIS <- tq_get("DIS", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+DIS$date <- as.Date(DIS$date)
+DIS <- as.xts(DIS)
+DIS <- DIS[,7]
+colnames(DIS)[1] <- "DIS"
+DIS <- window(DIS, start = "2000-12-01", end ="2022-12-31")
+
+#General Electric Company
+GE <- tq_get("GE", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+GE$date <- as.Date(GE$date)
+GE <- as.xts(GE)
+GE <- GE[,7]
+colnames(GE)[1] <- "GE"
+GE <- window(GE, start = "2000-12-01", end ="2022-12-31")
+
+#HP Inc.
+HPQ <- tq_get("HPQ", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+HPQ$date <- as.Date(HPQ$date)
+HPQ <- as.xts(HPQ)
+HPQ <- HPQ[,7]
+colnames(HPQ)[1] <- "HPQ"
+HPQ <- window(HPQ, start = "2000-12-01", end ="2022-12-31")
+
+#International Business Machines Corporation
+IBM <- tq_get("IBM", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+IBM$date <- as.Date(IBM$date)
+IBM <- as.xts(IBM)
+IBM <- IBM[,7]
+colnames(IBM)[1] <- "IBM"
+IBM <- window(IBM, start = "2000-12-01", end ="2022-12-31")
+
+#Johnson & Johnson
+JNJ <- tq_get("JNJ", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+JNJ$date <- as.Date(JNJ$date)
+JNJ <- as.xts(JNJ)
+JNJ <- JNJ[,7]
+colnames(JNJ)[1] <- "JNJ"
+JNJ <- window(JNJ, start = "2000-12-01", end ="2022-12-31")
+
+#JPMorgan Chase & Co.
+JPM <- tq_get("JPM", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+JPM$date <- as.Date(JPM$date)
+JPM <- as.xts(JPM)
+JPM <- JPM[,7]
+colnames(JPM)[1] <- "JPM"
+JPM <- window(JPM, start = "2000-12-01", end ="2022-12-31")
+
+
+#The Coca-Cola Company
+KO <- tq_get("KO", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+KO$date <- as.Date(KO$date)
+KO <- as.xts(KO)
+KO <- KO[,7]
+colnames(KO)[1] <- "KO"
+KO <- window(KO, start = "2000-12-01", end ="2022-12-31")
+
+#McDonald´s Corporation 
+MCD <- tq_get("MCD", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+MCD$date <- as.Date(MCD$date)
+MCD <- as.xts(MCD)
+MCD <- MCD[,7]
+colnames(MCD)[1] <- "MCD"
+MCD <- window(MCD, start = "2000-12-01", end ="2022-12-31")
+
+#Microsoft Corporation
+
+MSFT <- tq_get("MSFT", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+MSFT$date <- as.Date(MSFT$date)
+MSFT <- as.xts(MSFT)
+MSFT <- MSFT[,7]
+colnames(MSFT)[1] <- "MSFT"
+MSFT <- window(MSFT, start = "2000-12-01", end ="2022-12-31")
+
+#Nike Inc.
+NKE <- tq_get("NKE", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+NKE$date <- as.Date(NKE$date)
+NKE <- as.xts(NKE)
+NKE <- NKE[,7]
+colnames(NKE)[1] <- "NKE"
+NKE <- window(NKE, start = "2000-12-01", end ="2022-12-31")
+
+#Walmart Inc.
+WMT <- tq_get("WMT", get = "stock.prices", from="1980-01-01", to="2023-01-01", 
+              periodicity="daily")
+WMT$date <- as.Date(WMT$date)
+WMT <- as.xts(WMT)
+WMT <- WMT[,7]
+colnames(WMT)[1] <- "WMT"
+WMT <- window(WMT, start = "2000-12-01", end ="2022-12-31")
+```
+
+Lo que hice anteriormente fue descargar los precios históricos de cada una de las acciones y a cada
+una de las bases de datos las nombre con su ticker correspondiente. Luego la columna Date de cada
+base de datos la asginé como fecha, elimine el resto de las columnas y solo deje aquellas que me
+servían para trabajar en esto que eran Date y la de Precio Ajustado, a esta última, la nombre con
+el ticker de cada acción. Finalmente filtre con aquellas fechas que voy a trabajar. A modo de 
+ejemplo visualizare los primeros 5 datos de la base de datos correspondiente a Walmart para ver el
+resultado de esto.
+
+```{r}
+head(WMT, 5)
+```
+A continuación, juntaré las 15 bases de datos en una y nombre a esta "Prices", su nombre lo dice, son
+los precios históricos de cada una de las 15 acciones. 
+
+```{r include=FALSE}
+Prices <- merge(AMZN, AAPL, BA, CAT, DIS, GE, HPQ, IBM, JNJ, JPM, KO, MCD, MSFT,
+                NKE, WMT)
+head(Prices, 2)
+```
+
+La base de datos Prices en un archivo xts, es decir, en simples palabras, es una serie de tiempo, pero las
+columnas deberían ser reconocidas como datos numéricos pero en realidad son datos tipo carácter por lo siguiente
+que hare es modificar la clase de estos datos a numérico. Para esto, convertiré Prices en un data frame para
+poder realizar lo anteriormente mencionado y una vez que todos los datos sean clase numérica, convertiré de nuevo
+esta base de datos en un archivo xts.
+
+```{r include=FALSE}
+Prices <- data.frame(Prices)
+Prices$AMZN <- as.numeric(Prices$AMZN)
+Prices$AAPL <- as.numeric(Prices$AAPL)
+Prices$BA <- as.numeric(Prices$BA)
+Prices$CAT <- as.numeric(Prices$CAT)
+Prices$DIS <- as.numeric(Prices$DIS)
+Prices$GE <- as.numeric(Prices$GE)
+Prices$HPQ <- as.numeric(Prices$HPQ)
+Prices$IBM <- as.numeric(Prices$IBM)
+Prices$JNJ <- as.numeric(Prices$JNJ)
+Prices$JPM <- as.numeric(Prices$JPM)
+Prices$KO <- as.numeric(Prices$KO)
+Prices$MCD <- as.numeric(Prices$MCD)
+Prices$MSFT <- as.numeric(Prices$MSFT)
+Prices$NKE <- as.numeric(Prices$NKE)
+Prices$WMT <- as.numeric(Prices$WMT)
+Prices <- as.xts(Prices)
+```
+
+Lo siguiente a realizar será calcular el retorno logarítmico mensual de cada uno de estos 15 activos. Para
+esto primero calculare el retorno diario y eliminaré los primeros datos pertenecientes a la primera
+fila ya que no existen registros de precios anterior a la fecha inicial. Una vez obtenidos estos retornos
+diarios, procederé a calcular los retornos mensuales.
+
+
+```{r}
+#Retornos historicos de activos por separados
+Retornos <- Return.calculate(Prices, method ="log") #Retornos diarios
+DRetornos <- Retornos[-1,]
+MRetornos <- to.monthly(DRetornos, OHLC = FALSE, indexAt = "lastof") #Retornos mensuales
+MRetornos <- round(MRetornos, digits= 4)
+head(MRetornos,3)
+```
+Ahora visualizaremos algunas de las series de retornos pertenecientes a estas acciones.
+
+```{r}
+#Gráficos de los retornos individuales
+#Amazon.com Inc.
+plot.zoo(MRetornos$AMZN, ylab= "AMAZON Inc.", xlab = "Date")
+abline(h=0)
+```
+Lo importante a mencionar de Amazón es que registra tres caídas significantes en sus retornos. La primera
+de ellas es a principios de siglo donde se puede observar que tiene retornos negativos cerca de un 15%.
+Luego, entre los años 2010 y 2015 se observa que sobre pasa por muy poco el 1% de retorno negativo y por
+último, después del año 2020, aproximadamente en el año 2022, se observa la última caída significativa de 
+sus retornos sobrepasando por muy poco el 15%. Como retornos negativos significativos también podemos 
+visualizar retornos que son significativos positivamente hablando. Cerca del año 2010
+podemos ver que hay dos importantes alzas en sus retornos alcanzando el 15%. Por último, comenzando el año 
+2015 también se ve un alza en sus retornos sobrepasando el 1%.
+
+```{r}
+#Apple Inc.
+plot.zoo(MRetornos$AAPL, ylab = "Apple Inc.", xlab="Date")
+abline(h=0)
+```
+Con respecto a Apple Inc. lo que podemos decir es que encontramos 3 caídas importantes en sus retornos. La
+primera de ellas es comenzando el año 2001 donde se puede ver que hay un retorno negativo de 
+aproximadamente un 6%. La otra caída importante en sus retornos es entre los años 2005 y 2010 donde se 
+puede visualizar que sus retornos caen alrededor de un 1% y por último, la última caída importante es 
+pasado el año 2020 donde sobrepasa por muy poco el 5%. Cerca del año 2010 se observa un alza importante
+en sus retornos aproximándose al 9% y, por último, después de una caída relativamente importante en
+los retornos se puede observa un alza considerable donde alcanza un 10%.
+
+
+```{r}
+#HP Inc.
+plot.zoo(MRetornos$HPQ, ylab = "HP Inc Returns", xlab="Date")
+abline(h=0)
+```
+Como se puede observar del gráfico anterior, HP Inc. cerca del año 2020 registra una caída 
+importante en sus retornos, sobrepasando el 15% negativamente hablando.
+
+```{r}
+# #Johnson & Johnson
+plot.zoo(MRetornos$JNJ, ylab = "Johnson & Johnson Returns", xlab="Date")
+abline(h=0)
+```
+Johnson & Johnson a lo largo de esta ventana de tiempo ha tenido tres caídas importantes de sus retornos.
+Las primeras de ellas se registran entre los años 2000 y 2005 sobrepasando el 4% en primera instancia y 
+en segundo lugar, rozando el 4%. Por último, la tercera caída importante se registra cerca del año 2010, 
+con una caída que sobrepasa el 4%. Dentro de las alzas importantes, podemos mencionar una o dos ocasiones,
+la primera de ellas, se registra entre los años 2000 y 2005, alcanzado el 4% de retorno y el segundo 
+registro importante se ocasiona justo antes de la caída más importante de sus retornos, registrando un 
+retorno de 4% aproximadamente.
+
+```{r}
+#JPM
+plot.zoo(MRetornos$JPM, ylab = "JPM Returns", xlab="Date")
+abline(h=0)
+```
+Por un lado, JPMorgan Chase & Co. no registra importantes caídas de sus retornos a través de esta ventana
+de tiempo. Se podría destacar aquella en que registra su peor rendimiento cerca del año 2010, registrando 
+un 5% negativamente hablando. Por otro lado, tampoco registra alzas importantes de sus rendimientos, salvo
+por 2 ocasiones, la primera de ella es entre los años 2005 y 2010, donde sobrepasa el 1% de rendimiento y 
+la segunda vez, es entre los años 2010 y 2015, obteniendo un 7% aprox.
+
+```{r}
+#MSFT 
+plot.zoo(MRetornos$MSFT, ylab = "Microsoft Corporation Returns", xlab="Date")
+abline(h=0)
+```
+Microsoft Corporation por su parte, no registra grandes caídas en sus rendimientos a excepción de aquella
+que se registra en el año 2006 aproximadamente, registrando una caída de un 12% en sus precios. Y no 
+registra grandes alzas en sus rendimientos como para poder mencionarlas.
+
+
+Lo que hare a continuación será calcular el promedio de retorno mensual de cada uno de estos activos, para
+así ordenarlos y asignar lo pesos o "weights" para la estrategia de inversión dentro del portafolio.
+Aquellas acciones que tengan un rendimiento mensual promedio, mayor será a aquellas que se les asignará un
+peso mayor.
+
+```{r}
+#Retornos promedio mensual de cada activo para asignación de pesos en portafolio
+retorno_prom <- apply(MRetornos, 2, "mean")
+retorno_prom
+sort(retorno_prom)
+```
+Como podemos ver, Nike y Caterpillar son las acciones que registran un retorno promedio mensual mayor al
+resto de las 13 acciones que forman el portafolio o cartera de inversión. Es por lo anterior que a cada una
+de estas dos acciones se les asignará un 30% de nuestra inversión, contabilizando un total del 60% del 
+portafolio, el 40% restante será asignado para el resto de los activos que poseen un rendimiento mensual 
+promedio negativo.
+
+A continuación, también calcularé la desviación estándar promedio de cada uno de los 15 activos.
+```{r}
+sdpromedio <- apply(MRetornos, 2, "sd")
+sdpromedio
+sort(sdpromedio)
+```
+De lo anterior podemos decir que Amazon es la acción con más riesgo promedio mensual dentro de los 
+activos. Lo anterior, lo  representaré en un gráfico.
+
+```{r}
+plot(sdpromedio, retorno_prom)
+text(sdpromedio, retorno_prom, labels =colnames(MRetornos), cex = 0.9)
+abline(h = 0, lty = 3)
+```
+
+A continuación, calcularé los retornos mensuales del portafolio conformado por estas acciones, con los pesos mencionados
+anteriormente y además graficaremos estos retornos en un histograma para analizar la normalidad de estos.
+
+```{r}
+#Portafolio 
+#Retornos mensuales del portafolio
+m_return_porfolio <- Return.portfolio(MRetornos, weights =c(0.04, 0.04, 0.01, 0.3,
+                                                            0.04, 0.02, 0.02,0.04,
+                                                            0.04, 0.04, 0.04, 0.04,
+                                                            0.01, 0.3, 0.02))
+m_return_porfolio
+```
+
+```{r}
+chart.Histogram(m_return_porfolio,  breaks = "FD",
+                 main = "Portfolio", methods = c("add.density", "add.normal"), 
+                border.col = "black",
+                element.color = "black",
+                 note.color = "black")
+```
+Esta es una forma simple de analizar la normalidad de los retornos ya que existen herramientas que nos
+podrían ayudar más para este análisis como lo son la simetría, la curtosis, el Test de Jarque Bera, entre
+otros, pero en esta ocasión no profundizaré aquellos temas. 
+
+Para continuar con nuestro análisis podemos decir que a simple vista los retornos mensuales del 
+portafolio, de acuerdo con las asignaciones de inversión, no muestran una gran diferencia a lo que es una 
+distribución normal. La distribución normal de los retornos está representada por la Campana de Gauss de 
+color azul claro y la densidad de nuestros retornos de color azul oscuro. Las colas de esta distribución a
+simple vista no posee gran peso y la simetría de la distribución no varía en grandes proporciones. Es más,
+la distribución de nuestros datos se asemeja bastante a lo que es una normal.
+
+Siguiendo con los cálculos relacionados al análisis de portafolio, el siguiente paso a realizar será 
+calcular el retorno promedio mensual del portafolio, calcular la matriz de varianzas y covarianzas de los
+activos para calcular de esta forma, su desviación estándar mensual promedio, que es la medida por la cual
+se mide el riesgo de un activo financiero.
+```{r}
+#Retorno promedio mensual del portafolio 
+weights <-c(0.04, 0.04, 0.02, 0.3, 0.04, 0.02, 0.02,0.04,0.04, 0.04, 0.04, 0.04, 
+            0.01, 0.3, 0.02) 
+weights <- as.matrix(weights)
+retorno_prom <- as.matrix(retorno_prom)
+mean_return_monthly <- t(weights) %*% retorno_prom
+mean_return_monthly
+```
+```{r}
+#Matriz de covarianzas 
+matriz_cov <- cov(MRetornos)
+matriz_cov
+```
+```{r}
+#Desviación estandar promedio mensual del portafolio
+mean_desv_st <- sqrt(t(weights) %*% matriz_cov %*% weights)
+mean_desv_st
+```
+```{r echo=FALSE}
+Medidas <- c("Retorno", "Desv. Estandar")
+Valores <- c("-0.019%", "1,2%" )
+Tabla0 <- data.frame(Medidas, Valores)
+Tabla0
+```
+Como resultado tenemos un retorno promedio mensual del portafolio de -0.019% asociado a una volatilidad
+de un 1,2% promedio mensual. Lo cual es un retorno muy bajo, casi cercano a 0. No es algo positivo y no es
+algo que esperaba. Si una tasa libre de riesgo rinde más y por seguro que si, no tendría sentido invertir 
+en este portafolio.
+
+Veremos el Sharpe de este portafolio comparandolo con una tasa libre de riesgo del 0%.
+```{r}
+#Sharpe promedio mensual del portafolio
+Sharpe <- SharpeRatio(m_return_porfolio, Rf=0)
+Sharpe
+```
+Así mismo, el rendimiento promedio mensual de la cartera medido a través del Ratio de Sharpe nos da -1,4%
+con una tasa libre de riesgo de 0% de rentabilidad, es decir, que si la tasa libre de riesgo tuviese un
+rendimiento mayor, nuestro portafolio tendría un rendimiento peor! 
+
+A continuación veremos el mismo indicador pero anualizado.
+```{r}
+#Retorno anual promedio del portafolio, desv. estandar promedio anual y Sharpe promedio anual con Rf= 0
+table.AnnualizedReturns(m_return_porfolio)
+```
+Como podemos ver, los resultados no cambian mucho, son igual de malos.
+
+Continuando con el análisis seguiremos con el calculo de la optimización de los pesos de activos del
+portafolio que maximicen el retorno esperado y minimice el riesgo de este. Esto lo logramos con la función
+porftolio.optim del paquete "tseries"
+
+```{r}
+#Ya obtenido lo anterior procederemos a calcular los pesos
+op_portfolio <- portfolio.optim(MRetornos)
+op_portfoliopm <- op_portfolio$pm #retorno esperado dado los pesos
+op_portfoliops <- op_portfolio$ps #desviación estandar dada los pesos
+```
+
+
+```{r}
+#weights
+op_portfoliopw <- op_portfolio$pw
+names(op_portfoliopw) <- colnames(MRetornos)
+#Selecciono las asignaciones mayores a 1 y las gráfico
+opt_weights <- op_portfoliopw[op_portfoliopw >= 0.01]
+barplot(sort(opt_weights))
+```
+De acuerdo a lo obtenido anteriormente, las acciones que tienen una asignación de inversión
+mayor a 1% son las de HP, Amazon, Nike, Walmart, IBM, Jhonson & Johnson, Coca Cola y McDonalds.
+
+```{r}
+op_portfoliopm
+op_portfoliops
+```
+Sin embargo, aún teniendo un portafolio óptimo, el retorno de este es levemente negativo, de un -0.01%
+con una volatilidad de un 0.008%
+```{r}
+plot(op_portfoliops, op_portfoliopm)
+text(op_portfoliops, op_portfoliopm, labels ="Portafolio Optimo", cex = 0.4)
+abline(h = 0, lty = 3)
+```
